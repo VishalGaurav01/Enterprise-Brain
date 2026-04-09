@@ -120,30 +120,6 @@ def get_employee_by_user_code(
     user_code: str,
 ) -> Optional[EmployeeGet]:
     """
-    Get employee by user code.
-
-    Args:
-        session: Database session.
-        user_code: Employee user code.
-
-    Returns:
-        Employee object or None if not found.
-    """
-    try:
-        employee = repo_get_by_user_code(session, user_code)
-        if employee:
-            return EmployeeGet.model_validate(employee)
-        return None
-    except SQLAlchemyError as e:
-        raise SQLAlchemyError(f"Database error: {str(e)}")
-
-
-def get_all_employees(
-    session: Session,
-    skip: int = 0,
-    limit: int = 100,
-) -> List[EmployeeGet]:
-    """
     Get all employees with pagination.
 
     Args:
@@ -160,6 +136,29 @@ def get_all_employees(
     except SQLAlchemyError as e:
         raise SQLAlchemyError(f"Database error: {str(e)}")
 
+
+def get_all_employees(
+    session: Session,
+    skip: int = 0,
+    limit: int = 100,
+) -> List[EmployeeGet]:
+    """
+    Get employee by user code.
+
+    Args:
+        session: Database session.
+        user_code: Employee user code.
+
+    Returns:
+        Employee object or None if not found.
+    """
+    try:
+        employee = repo_get_by_user_code(session, user_code)
+        if employee:
+            return EmployeeGet.model_validate(employee)
+        return None
+    except SQLAlchemyError as e:
+        raise SQLAlchemyError(f"Database error: {str(e)}")
 
 # ==================== UPDATE Operations ====================
 def update_employee(
@@ -249,4 +248,4 @@ def delete_employee(
     except SQLAlchemyError as e:
         session.rollback()
         raise SQLAlchemyError(f"Database error: {str(e)}")
-
+
