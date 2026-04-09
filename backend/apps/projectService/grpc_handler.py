@@ -7,6 +7,11 @@ from apps.projectService.model.project import Project
 from core.database import SessionLocal
 from uuid import UUID
 
+# Import all model packages — __init__.py ensures full SQLAlchemy mapper initialization
+import apps.employeeService.model
+import apps.projectService.model
+import apps.financeService.model
+
 class ProjectGrpcHandler(project_pb2_grpc.ProjectServiceServicer):
     def GetProject(self, request, context):
         db = SessionLocal()

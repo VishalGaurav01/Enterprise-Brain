@@ -5,15 +5,22 @@ from apps.grpcProto.generated import employee_pb2
 from apps.grpcProto.generated import employee_pb2_grpc
 from apps.employeeService.model.employee import Employee
 from apps.employeeService.model.department import Department
-from core.database import SessionLocal
+from core.config import SessionLocal, DATABASE_URL
 from uuid import UUID
+
+# Import all model packages — __init__.py ensures full SQLAlchemy mapper initialization
+import apps.employeeService.model
+import apps.projectService.model
+import apps.financeService.model
 
 class EmployeeGrpcHandler(employee_pb2_grpc.EmployeeServiceServicer):
     def GetEmployee(self, request, context):
+        print(f"--- gRPC EmployeeService: Received request for ID: {request.employee_id} ---")
         db = SessionLocal()
         try:
             employee = db.query(Employee).filter(Employee.id == UUID(request.employee_id)).first()
             if not employee:
+                print(f"!!! gRPC EmployeeService: Employee {request.employee_id} NOT FOUND in DB !!!")
                 context.set_code(grpc.StatusCode.NOT_FOUND)
                 context.set_details(f"Employee {request.employee_id} not found")
                 return employee_pb2.EmployeeResponse()
@@ -28,6 +35,7 @@ class EmployeeGrpcHandler(employee_pb2_grpc.EmployeeServiceServicer):
                 status=employee.status
             )
         except Exception as e:
+            print(f"!!! gRPC EmployeeService INTERNAL ERROR: {type(e).__name__}: {e} !!!")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
             return employee_pb2.EmployeeResponse()
@@ -35,6 +43,7 @@ class EmployeeGrpcHandler(employee_pb2_grpc.EmployeeServiceServicer):
             db.close()
 
 def serve():
+    print(f"--- gRPC EmployeeService: DB URL is {DATABASE_URL} ---")
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     employee_pb2_grpc.add_EmployeeServiceServicer_to_server(EmployeeGrpcHandler(), server)
     server.add_insecure_port('[::]:50051')

@@ -4,9 +4,13 @@ import logging
 from sqlalchemy import func
 from apps.grpcProto.generated import finance_pb2
 from apps.grpcProto.generated import finance_pb2_grpc
-from apps.financeService.model.revenue import ProjectRevenue
 from core.database import SessionLocal
 from uuid import UUID
+
+# Import all model packages — __init__.py ensures full SQLAlchemy mapper initialization
+import apps.employeeService.model
+import apps.projectService.model
+import apps.financeService.model
 
 class FinanceGrpcHandler(finance_pb2_grpc.FinanceServiceServicer):
     def GetRevenueSummary(self, request, context):

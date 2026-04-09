@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-import finance_pb2 as finance__pb2
+from . import finance_pb2 as finance__pb2
 
 GRPC_GENERATED_VERSION = '1.74.0'
 GRPC_VERSION = grpc.__version__
