@@ -97,29 +97,6 @@ def get_employee_by_email(
     email: str,
 ) -> Optional[EmployeeGet]:
     """
-    Get employee by email.
-
-    Args:
-        session: Database session.
-        email: Employee email.
-
-    Returns:
-        Employee object or None if not found.
-    """
-    try:
-        employee = repo_get_by_email(session, email)
-        if employee:
-            return EmployeeGet.model_validate(employee)
-        return None
-    except SQLAlchemyError as e:
-        raise SQLAlchemyError(f"Database error: {str(e)}")
-
-
-def get_employee_by_user_code(
-    session: Session,
-    user_code: str,
-) -> Optional[EmployeeGet]:
-    """
     Get employee by user code.
 
     Args:
@@ -137,6 +114,28 @@ def get_employee_by_user_code(
     except SQLAlchemyError as e:
         raise SQLAlchemyError(f"Database error: {str(e)}")
 
+
+def get_employee_by_user_code(
+    session: Session,
+    user_code: str,
+) -> Optional[EmployeeGet]:
+    """
+    Get employee by email.
+
+    Args:
+        session: Database session.
+        email: Employee email.
+
+    Returns:
+        Employee object or None if not found.
+    """
+    try:
+        employee = repo_get_by_email(session, email)
+        if employee:
+            return EmployeeGet.model_validate(employee)
+        return None
+    except SQLAlchemyError as e:
+        raise SQLAlchemyError(f"Database error: {str(e)}")
 
 def get_all_employees(
     session: Session,
@@ -249,4 +248,4 @@ def delete_employee(
     except SQLAlchemyError as e:
         session.rollback()
         raise SQLAlchemyError(f"Database error: {str(e)}")
-
+
