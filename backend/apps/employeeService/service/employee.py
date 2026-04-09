@@ -97,17 +97,17 @@ def get_employee_by_email(
     email: str,
 ) -> Optional[EmployeeGet]:
     """
-    Get employee by email.
+    Get employee by user code.
 
     Args:
         session: Database session.
-        email: Employee email.
+        user_code: Employee user code.
 
     Returns:
         Employee object or None if not found.
     """
     try:
-        employee = repo_get_by_email(session, email)
+        employee = repo_get_by_user_code(session, user_code)
         if employee:
             return EmployeeGet.model_validate(employee)
         return None
@@ -120,17 +120,17 @@ def get_employee_by_user_code(
     user_code: str,
 ) -> Optional[EmployeeGet]:
     """
-    Get employee by user code.
+    Get employee by email.
 
     Args:
         session: Database session.
-        user_code: Employee user code.
+        email: Employee email.
 
     Returns:
         Employee object or None if not found.
     """
     try:
-        employee = repo_get_by_user_code(session, user_code)
+        employee = repo_get_by_email(session, email)
         if employee:
             return EmployeeGet.model_validate(employee)
         return None
@@ -249,4 +249,4 @@ def delete_employee(
     except SQLAlchemyError as e:
         session.rollback()
         raise SQLAlchemyError(f"Database error: {str(e)}")
-
+
