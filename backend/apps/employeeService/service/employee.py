@@ -97,6 +97,29 @@ def get_employee_by_email(
     email: str,
 ) -> Optional[EmployeeGet]:
     """
+    Get employee by user code.
+
+    Args:
+        session: Database session.
+        user_code: Employee user code.
+
+    Returns:
+        Employee object or None if not found.
+    """
+    try:
+        employee = repo_get_by_user_code(session, user_code)
+        if employee:
+            return EmployeeGet.model_validate(employee)
+        return None
+    except SQLAlchemyError as e:
+        raise SQLAlchemyError(f"Database error: {str(e)}")
+
+
+def get_employee_by_user_code(
+    session: Session,
+    user_code: str,
+) -> Optional[EmployeeGet]:
+    """
     Get employee by email.
 
     Args:
@@ -114,11 +137,11 @@ def get_employee_by_email(
     except SQLAlchemyError as e:
         raise SQLAlchemyError(f"Database error: {str(e)}")
 
-
-def get_employee_by_user_code(
+def get_all_employees(
     session: Session,
-    user_code: str,
-) -> Optional[EmployeeGet]:
+    skip: int = 0,
+    limit: int = 100,
+) -> List[EmployeeGet]:
     """
     Get all employees with pagination.
 
@@ -136,29 +159,6 @@ def get_employee_by_user_code(
     except SQLAlchemyError as e:
         raise SQLAlchemyError(f"Database error: {str(e)}")
 
-
-def get_all_employees(
-    session: Session,
-    skip: int = 0,
-    limit: int = 100,
-) -> List[EmployeeGet]:
-    """
-    Get employee by user code.
-
-    Args:
-        session: Database session.
-        user_code: Employee user code.
-
-    Returns:
-        Employee object or None if not found.
-    """
-    try:
-        employee = repo_get_by_user_code(session, user_code)
-        if employee:
-            return EmployeeGet.model_validate(employee)
-        return None
-    except SQLAlchemyError as e:
-        raise SQLAlchemyError(f"Database error: {str(e)}")
 
 # ==================== UPDATE Operations ====================
 def update_employee(
