@@ -7,9 +7,9 @@ from apps.projectService.api.project import router as project_router
 from apps.projectService.api.assignment import router as assignment_router
 from apps.projectService.api.vendor import router as vendor_router
 from apps.projectService.api.cost import router as cost_router
-from apps.projectService.api.client import router as client_router
-from apps.projectService.api.invoice import router as invoice_router
-from apps.projectService.api.revenue import router as revenue_router
+from apps.financeService.api.client import router as client_router
+from apps.financeService.api.invoice import router as invoice_router
+from apps.financeService.api.revenue import router as revenue_router
 from apps.shared.security import verify_token
 
 # Central Gateway Router with versioning

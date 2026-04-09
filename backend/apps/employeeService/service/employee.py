@@ -22,6 +22,8 @@ from apps.employeeService.repository.employee import (
 )
 
 
+from apps.shared.kafka_producer import BrainKafkaProducer
+
 # ==================== CREATE Operations ====================
 def create_employee(
     session: Session,
@@ -57,6 +59,13 @@ def create_employee(
         employee = Employee(**employee_data.model_dump())
         employee.created_by = current_user.id
         created_employee = repo_create(session, employee)
+
+        # Publish Kafka Event
+        BrainKafkaProducer.publish_event(
+            topic="employee-events",
+            event_type="EMPLOYEE_CREATED",
+            data={"employee_id": str(created_employee.id), "email": created_employee.email}
+        )
 
         return EmployeeGet.model_validate(created_employee)
 
@@ -203,6 +212,13 @@ def update_employee(
         # Update employee
         update_data = employee_data.model_dump(exclude_unset=True)
         updated_employee = repo_update(session, employee_id, update_data)
+
+        # Publish Kafka Event
+        BrainKafkaProducer.publish_event(
+            topic="employee-events",
+            event_type="EMPLOYEE_UPDATED",
+            data={"employee_id": str(updated_employee.id), "fields": list(update_data.keys())}
+        )
 
         return EmployeeGet.model_validate(updated_employee)
 

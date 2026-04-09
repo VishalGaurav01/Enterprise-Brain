@@ -7,23 +7,23 @@ from core.database import get_db
 from apps.shared.customResponse import custom_response
 from apps.shared.security import verify_token
 from apps.authService.schema.auth import UserGet
-from apps.projectService.schema.revenue import ProjectRevenueCreate
-from apps.shared.responses import ProjectRevenueGet
-from apps.projectService.service import revenue as service
+from apps.financeService.schema.invoice import InvoiceCreate
+from apps.shared.responses import InvoiceGet
+from apps.financeService.service import invoice as service
 
-router = APIRouter(prefix="/revenues", tags=["Revenue Tracking"])
+router = APIRouter(prefix="/invoices", tags=["Invoice Management"])
 
 @router.post("/")
 def create_endpoint(
-    data: ProjectRevenueCreate, 
+    data: InvoiceCreate, 
     session: Session = Depends(get_db), 
     current_user: UserGet = Depends(verify_token)
 ):
     try:
-        result = service.create_revenue(session, data, current_user)
-        return custom_response(result, "Revenue recorded successfully", 200)
+        result = service.create_invoice(session, data, current_user)
+        return custom_response(result, "Invoice created successfully", 200)
     except Exception as e:
-        return custom_response(None, "Revenue recording failed", 500, str(e))
+        return custom_response(None, "Invoice creation failed", 500, str(e))
 
 @router.get("/")
 def list_endpoint(
@@ -32,10 +32,10 @@ def list_endpoint(
     current_user: UserGet = Depends(verify_token)
 ):
     try:
-        results = service.get_all_revenues(session, skip, limit)
-        return custom_response(results, "Revenues retrieved successfully", 200)
+        results = service.get_all_invoices(session, skip, limit)
+        return custom_response(results, "Invoices retrieved successfully", 200)
     except Exception as e:
-        return custom_response(None, "Failed to fetch revenues", 500, str(e))
+        return custom_response(None, "Failed to fetch invoices", 500, str(e))
 
 @router.delete("/{id}")
 def delete_endpoint(
@@ -44,7 +44,7 @@ def delete_endpoint(
     current_user: UserGet = Depends(verify_token)
 ):
     try:
-        service.delete_revenue_record(session, id)
-        return custom_response(None, "Revenue record deleted", 200)
+        service.delete_invoice_record(session, id)
+        return custom_response(None, "Invoice record deleted", 200)
     except Exception as e:
         return custom_response(None, "Deletion failed", 500, str(e))

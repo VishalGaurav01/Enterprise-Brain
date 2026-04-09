@@ -12,9 +12,9 @@ from apps.projectService.schema.project import ProjectBase
 from apps.projectService.schema.assignment import AssignmentBase
 from apps.projectService.schema.vendor import VendorBase
 from apps.projectService.schema.cost import ProjectCostBase
-from apps.projectService.schema.revenue import ProjectRevenueBase
-from apps.projectService.schema.client import ClientBase
-from apps.projectService.schema.invoice import InvoiceBase
+from apps.financeService.schema.revenue import ProjectRevenueBase
+from apps.financeService.schema.client import ClientBase
+from apps.financeService.schema.invoice import InvoiceBase
 
 # ==================== MINIMAL Response Models (To prevent recursion) ====================
 

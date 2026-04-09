@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import Optional, List
-from apps.projectService.model.client import Client
-from apps.projectService.schema.client import ClientCreate, ClientUpdate
+from apps.financeService.model.client import Client
+from apps.financeService.schema.client import ClientCreate, ClientUpdate
 from apps.shared.responses import ClientGet
-from apps.projectService.repository import client as repo
+from apps.financeService.repository import client as repo
 from apps.authService.schema.auth import UserGet
 
 def create_client(session: Session, data: ClientCreate, current_user: UserGet) -> ClientGet:

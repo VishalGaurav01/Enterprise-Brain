@@ -7,7 +7,14 @@ from apps.shared.responses import AssignmentGet
 from apps.projectService.repository import assignment as repo
 from apps.authService.schema.auth import UserGet
 
+from apps.shared.grpc_clients import GrpcClients
+
 def create_assignment(session: Session, data: AssignmentCreate, current_user: UserGet) -> AssignmentGet:
+    # Use Case 1: Validate Employee exists via gRPC
+    employee = GrpcClients.get_employee(str(data.employee_id))
+    if not employee:
+        raise ValueError(f"Cannot assign: Employee with ID {data.employee_id} does not exist in Employee Service.")
+        
     assign = EmployeeProjectAssignment(**data.model_dump())
     assign.created_by = current_user.id
     created = repo.create(session, assign)

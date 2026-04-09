@@ -7,9 +7,9 @@ from core.database import get_db
 from apps.shared.customResponse import custom_response
 from apps.shared.security import verify_token
 from apps.authService.schema.auth import UserGet
-from apps.projectService.schema.client import ClientCreate, ClientUpdate
+from apps.financeService.schema.client import ClientCreate, ClientUpdate
 from apps.shared.responses import ClientGet
-from apps.projectService.service import client as service
+from apps.financeService.service import client as service
 
 router = APIRouter(prefix="/clients", tags=["Client Management"])
 

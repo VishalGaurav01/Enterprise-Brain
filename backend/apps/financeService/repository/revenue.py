@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from apps.projectService.model.revenue import ProjectRevenue
+from apps.financeService.model.revenue import ProjectRevenue
 from uuid import UUID
 from typing import List, Optional
 

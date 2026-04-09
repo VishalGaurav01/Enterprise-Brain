@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package finance.v1;
+
+service FinanceService {
+  rpc GetRevenueSummary (RevenueSummaryRequest) returns (RevenueSummaryResponse) {}
+}
+
+message RevenueSummaryRequest {
+  string project_id = 1;
+}
+
+message RevenueSummaryResponse {
+  string project_id = 1;
+  double total_revenue = 2;
+  int32 invoice_count = 3;
+}

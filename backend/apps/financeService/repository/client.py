@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from apps.projectService.model.client import Client
+from apps.financeService.model.client import Client
 from uuid import UUID
 from typing import List, Optional
 

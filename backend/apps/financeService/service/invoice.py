@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import Optional, List
-from apps.projectService.model.invoice import Invoice
-from apps.projectService.schema.invoice import InvoiceCreate
+from apps.financeService.model.invoice import Invoice
+from apps.financeService.schema.invoice import InvoiceCreate
 from apps.shared.responses import InvoiceGet
-from apps.projectService.repository import invoice as repo
+from apps.financeService.repository import invoice as repo
 from apps.authService.schema.auth import UserGet
 
 def create_invoice(session: Session, data: InvoiceCreate, current_user: UserGet) -> InvoiceGet:
