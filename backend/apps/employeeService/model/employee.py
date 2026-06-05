@@ -39,3 +39,4 @@ class Employee(Base):
     )
     
     assignments = relationship("EmployeeProjectAssignment", back_populates="employee")
+    reimbursements = relationship("Reimbursement", back_populates="employee")

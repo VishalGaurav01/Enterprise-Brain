@@ -28,3 +28,4 @@ class Department(Base):
     projects = relationship(
         "Project", back_populates="department", foreign_keys=[Project.department_id]
     )
+    software_tools = relationship("SoftwareTool", back_populates="department")

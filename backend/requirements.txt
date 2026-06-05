@@ -26,3 +26,4 @@ passlib[bcrypt]==1.7.4
 
 pytest==8.4.1
 pytest-asyncio==1.1.0
+simpleeval==0.9.13

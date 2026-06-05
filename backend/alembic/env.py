@@ -9,15 +9,19 @@ from core.config import engine, Base
 from apps.employeeService.model.employee import Employee
 from apps.employeeService.model.department import Department
 from apps.employeeService.model.designation import Designation
+from apps.employeeService.model.software_tool import SoftwareTool
 from apps.authService.model.auth import User, Role, Permission, Session
 from apps.projectService.model.project import Project
 from apps.projectService.model.assignment import EmployeeProjectAssignment
 from apps.projectService.model.vendor import Vendor
 from apps.projectService.model.cost import ProjectCost
-from apps.projectService.model.client import Client
-from apps.projectService.model.invoice import Invoice
-from apps.projectService.model.revenue import ProjectRevenue
-
+from apps.financeService.model.client import Client
+from apps.financeService.model.invoice import Invoice
+from apps.financeService.model.revenue import ProjectRevenue
+from apps.financeService.model.reimbursement import Reimbursement
+from apps.analyticsService.model.rule_engine import RuleEngineConfig
+from apps.analyticsService.model.attribution import EmployeeRevenueAttribution
+from apps.analyticsService.model.audit import AuditLog, UserAccess
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

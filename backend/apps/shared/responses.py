@@ -15,6 +15,8 @@ from apps.projectService.schema.cost import ProjectCostBase
 from apps.financeService.schema.revenue import ProjectRevenueBase
 from apps.financeService.schema.client import ClientBase
 from apps.financeService.schema.invoice import InvoiceBase
+from apps.financeService.schema.reimbursement import ReimbursementBase
+from apps.employeeService.schema.software_tool import SoftwareToolBase
 
 # ==================== MINIMAL Response Models (To prevent recursion) ====================
 
@@ -43,6 +45,10 @@ class ClientGetMinimal(ClientBase):
     model_config = ConfigDict(from_attributes=True)
 
 class InvoiceGetMinimal(InvoiceBase):
+    id: UUID
+    model_config = ConfigDict(from_attributes=True)
+
+class SoftwareToolGetMinimal(SoftwareToolBase):
     id: UUID
     model_config = ConfigDict(from_attributes=True)
 
@@ -122,4 +128,18 @@ class ProjectRevenueGet(ProjectRevenueBase):
     project: Optional[ProjectGetMinimal] = None
     invoice: Optional[InvoiceGetMinimal] = None
     client: Optional[ClientGetMinimal] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class ReimbursementGet(ReimbursementBase):
+    id: UUID
+    created_at: datetime
+    created_by: Optional[UUID] = None
+    employee: Optional[EmployeeGetMinimal] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class SoftwareToolGet(SoftwareToolBase):
+    id: UUID
+    created_at: datetime
+    created_by: Optional[UUID] = None
+    department: Optional[DepartmentGetMinimal] = None
     model_config = ConfigDict(from_attributes=True)
