@@ -42,3 +42,12 @@ class BrainKafkaProducer:
             print(f"Published event {event_type} to {topic}")
         except Exception as e:
             logging.error(f"Kafka Publishing Error: {e}")
+
+class EventBus:
+    def publish_action(self, action: dict, context: dict):
+        BrainKafkaProducer.publish_event('enterprise-decisions', 'business_decision_triggered', {
+            "action": action,
+            "context": context
+        })
+
+event_bus = EventBus()

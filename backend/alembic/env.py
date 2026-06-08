@@ -19,7 +19,7 @@ from apps.financeService.model.client import Client
 from apps.financeService.model.invoice import Invoice
 from apps.financeService.model.revenue import ProjectRevenue
 from apps.financeService.model.reimbursement import Reimbursement
-from apps.analyticsService.model.rule_engine import RuleEngineConfig
+from apps.analyticsService.model.business_rule import BusinessRule
 from apps.analyticsService.model.attribution import EmployeeRevenueAttribution
 from apps.analyticsService.model.audit import AuditLog, UserAccess
 # this is the Alembic Config object, which provides

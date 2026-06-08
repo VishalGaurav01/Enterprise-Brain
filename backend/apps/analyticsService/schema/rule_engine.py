@@ -1,30 +1,32 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional, Dict, Any
 from uuid import UUID
-from datetime import datetime
-from typing import Optional
 
-class RuleEngineConfigBase(BaseModel):
-    rule_name: str
-    expression: str
-    description: Optional[str] = None
-    version: int = 1
-    is_active: bool = True
+class BusinessRuleBase(BaseModel):
+    rule_name: str = Field(..., max_length=255)
+    entity_type: str = Field(..., max_length=50)
+    condition: Dict[str, Any]
+    action: Dict[str, Any]
+    priority: int = 1
+    enabled: bool = True
 
-class RuleEngineConfigCreate(RuleEngineConfigBase):
-    pass
-
-class RuleEngineConfigGet(RuleEngineConfigBase):
-    id: UUID
-    
     model_config = ConfigDict(from_attributes=True)
 
+class BusinessRuleCreate(BusinessRuleBase):
+    pass
+
+class BusinessRuleGet(BusinessRuleBase):
+    rule_id: UUID
+
 class EvaluationRequest(BaseModel):
+    # This is optional depending on entity_type
+    entity_type: str
     employee_id: Optional[UUID] = None
     project_id: Optional[UUID] = None
     department_id: Optional[UUID] = None
-    is_organization: bool = False
-    rule_name: str
+    is_organization: Optional[bool] = False
 
 class EvaluationResponse(BaseModel):
-    result: float
-    details: dict
+    result: Any
+    details: Dict[str, Any] = {}
+    triggered_rules: list[str] = []
