@@ -5,29 +5,32 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
-import api from '../lib/api';
+import { AnalyticsService } from '../services';
+import type { BusinessRule } from '../types';
 import { Play, Plus } from 'lucide-react';
 
 export default function RuleEngine() {
-  const [rules, setRules] = useState<any[]>([]);
+  const [rules, setRules] = useState<BusinessRule[]>([]);
   const [loading, setLoading] = useState(true);
 
   // New Rule State
   const [newRuleName, setNewRuleName] = useState('');
-  const [newRuleExpr, setNewRuleExpr] = useState('');
-  const [newRuleDesc, setNewRuleDesc] = useState('');
+  const [newRuleCondition, setNewRuleCondition] = useState('{"metric": "employee_roi", "operator": "<", "value": 20.0}');
+  const [newRuleAction, setNewRuleAction] = useState('{"recommendation": "investigate", "severity": "medium"}');
+  const [newRuleEntityType, setNewRuleEntityType] = useState('employee');
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // Eval State
   const [evalRuleName, setEvalRuleName] = useState('');
-  const [evalEmpId, setEvalEmpId] = useState('');
+  const [evalEntityType, setEvalEntityType] = useState('');
+  const [evalEntityId, setEvalEntityId] = useState('');
   const [evalResult, setEvalResult] = useState<any>(null);
   const [evalDialog, setEvalDialog] = useState(false);
 
   const fetchRules = async () => {
     try {
-      const res = await api.get('/analytics/rules');
-      setRules(res.data);
+      const res = await AnalyticsService.getRules();
+      setRules(res);
     } catch (err) {
       console.error("Failed to fetch rules", err);
     } finally {
@@ -42,40 +45,51 @@ export default function RuleEngine() {
   const handleCreateRule = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/analytics/rules', {
+      await AnalyticsService.createRule({
         rule_name: newRuleName,
-        expression: newRuleExpr,
-        description: newRuleDesc
+        entity_type: newRuleEntityType,
+        condition: JSON.parse(newRuleCondition),
+        action: JSON.parse(newRuleAction),
+        priority: 1,
+        enabled: true
       });
       setDialogOpen(false);
       setNewRuleName('');
-      setNewRuleExpr('');
-      setNewRuleDesc('');
       fetchRules();
     } catch (err) {
       console.error(err);
+      alert("Failed to create rule. Check JSON format.");
     }
   };
 
   const handleEvaluate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await api.post('/analytics/evaluate', {
+      const payload: any = {
         rule_name: evalRuleName,
-        employee_id: evalEmpId || undefined,
-        is_organization: !evalEmpId
-      });
-      setEvalResult(res.data);
+        entity_type: evalEntityType,
+        is_organization: evalEntityType === 'organization'
+      };
+      
+      if (evalEntityId) {
+        if (evalEntityType === 'employee') payload.employee_id = evalEntityId;
+        if (evalEntityType === 'project') payload.project_id = evalEntityId;
+        if (evalEntityType === 'department') payload.department_id = evalEntityId;
+      }
+
+      const res = await AnalyticsService.evaluate(payload);
+      setEvalResult(res);
     } catch (err) {
       console.error(err);
       setEvalResult({ error: "Evaluation failed. Check ID." });
     }
   };
 
-  const openEval = (ruleName: string) => {
-    setEvalRuleName(ruleName);
+  const openEval = (rule: BusinessRule) => {
+    setEvalRuleName(rule.rule_name);
+    setEvalEntityType(rule.entity_type);
     setEvalResult(null);
-    setEvalEmpId('');
+    setEvalEntityId('');
     setEvalDialog(true);
   };
 
@@ -103,13 +117,16 @@ export default function RuleEngine() {
                 <Input value={newRuleName} onChange={e => setNewRuleName(e.target.value)} placeholder="e.g. custom_bonus_v1" required />
               </div>
               <div className="space-y-2">
-                <Label>Mathematical Expression</Label>
-                <Input value={newRuleExpr} onChange={e => setNewRuleExpr(e.target.value)} placeholder="e.g. (Attributed_Revenue * 0.1) + 500" required className="font-mono" />
-                <p className="text-xs text-muted-foreground">Available variables contextually injected.</p>
+                <Label>Entity Type</Label>
+                <Input value={newRuleEntityType} onChange={e => setNewRuleEntityType(e.target.value)} placeholder="e.g. employee, project, organization" required />
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
-                <Input value={newRuleDesc} onChange={e => setNewRuleDesc(e.target.value)} placeholder="What does this calculate?" />
+                <Label>Condition (JSON)</Label>
+                <Input value={newRuleCondition} onChange={e => setNewRuleCondition(e.target.value)} placeholder='{"metric": "employee_roi", "operator": "<", "value": 20}' required className="font-mono" />
+              </div>
+              <div className="space-y-2">
+                <Label>Action (JSON)</Label>
+                <Input value={newRuleAction} onChange={e => setNewRuleAction(e.target.value)} placeholder='{"recommendation": "investigate"}' required className="font-mono" />
               </div>
               <div className="pt-4 flex justify-end">
                 <Button type="submit">Save Configuration</Button>
@@ -119,30 +136,30 @@ export default function RuleEngine() {
         </Dialog>
       </div>
 
-      <Card className="bg-card/50 backdrop-blur-sm border-white/5">
+      <Card className="bg-card border-border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Rule Name</TableHead>
-              <TableHead>Expression</TableHead>
-              <TableHead>Description</TableHead>
+              <TableHead>Entity Type</TableHead>
+              <TableHead>Condition</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rules.map((r) => (
-              <TableRow key={r.id}>
+              <TableRow key={r.rule_id || r.rule_name}>
                 <TableCell className="font-medium">{r.rule_name}</TableCell>
-                <TableCell><code className="px-2 py-1 bg-secondary rounded text-xs text-primary">{r.expression}</code></TableCell>
-                <TableCell className="text-muted-foreground">{r.description}</TableCell>
+                <TableCell>{r.entity_type}</TableCell>
+                <TableCell><code className="px-2 py-1 bg-secondary rounded text-xs text-primary">{JSON.stringify(r.condition)}</code></TableCell>
                 <TableCell>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${r.is_active ? 'bg-green-500/10 text-green-500' : 'bg-destructive/10 text-destructive'}`}>
-                    {r.is_active ? 'Active' : 'Inactive'}
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${r.enabled ? 'bg-green-500/10 text-green-500' : 'bg-destructive/10 text-destructive'}`}>
+                    {r.enabled ? 'Active' : 'Inactive'}
                   </span>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="outline" size="sm" onClick={() => openEval(r.rule_name)} className="gap-2">
+                  <Button variant="outline" size="sm" onClick={() => openEval(r)} className="gap-2">
                     <Play className="w-3 h-3" /> Test
                   </Button>
                 </TableCell>
@@ -164,9 +181,15 @@ export default function RuleEngine() {
                 <Input value={evalRuleName} disabled className="bg-muted" />
               </div>
               <div className="space-y-2">
-                <Label>Target Employee ID (Optional)</Label>
-                <Input value={evalEmpId} onChange={e => setEvalEmpId(e.target.value)} placeholder="Leave blank for Org level" />
+                <Label>Entity Type</Label>
+                <Input value={evalEntityType} disabled className="bg-muted" />
               </div>
+              {evalEntityType !== 'organization' && (
+                <div className="space-y-2">
+                  <Label>Target {evalEntityType} ID</Label>
+                  <Input value={evalEntityId} onChange={e => setEvalEntityId(e.target.value)} placeholder={`Enter ${evalEntityType} UUID`} required />
+                </div>
+              )}
               <Button type="submit" className="w-full">Run Evaluation</Button>
             </form>
 

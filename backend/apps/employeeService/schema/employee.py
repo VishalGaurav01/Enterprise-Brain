@@ -3,15 +3,15 @@ from typing import Optional
 from uuid import UUID
 
 class EmployeeBase(BaseModel):
-    user_code: str = Field(..., max_length=50)
-    first_name: str = Field(..., max_length=100)
-    last_name: str = Field(..., max_length=100)
-    email: EmailStr = Field(...)
-    contact_number: str = Field(..., max_length=20)
+    user_code: Optional[str] = Field(None, max_length=50)
+    first_name: Optional[str] = Field(None, max_length=100)
+    last_name: Optional[str] = Field(None, max_length=100)
+    email: Optional[EmailStr] = None
+    contact_number: Optional[str] = Field(None, max_length=20)
     department_id: Optional[UUID] = None
     designation_id: Optional[UUID] = None
     manager_id: Optional[UUID] = None
-    status: str = Field("active", max_length=20)
+    status: Optional[str] = Field("active", max_length=20)
 
     model_config = ConfigDict(from_attributes=True)
 

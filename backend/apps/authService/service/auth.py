@@ -13,15 +13,18 @@ from apps.authService.schema.auth import (
 )
 from apps.authService.repository import auth as repo
 
+import bcrypt
+
 # Password hashing configuration
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # ==================== AUTH Logic ====================
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 def generate_session_token() -> str:
     return secrets.token_urlsafe(32)
@@ -43,6 +46,10 @@ def register_user(session: Session, data: UserCreate) -> UserGet:
 
 def authenticate_user(session: Session, data: UserLogin) -> TokenResponse:
     user = repo.get_user_by_username(session, data.username)
+    if not user:
+        # Fallback: try finding user by email instead
+        user = repo.get_user_by_email(session, data.username)
+        
     if not user or not verify_password(data.password, user.hashed_password):
         raise ValueError("Invalid username or password")
 

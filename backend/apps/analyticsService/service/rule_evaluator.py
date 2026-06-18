@@ -44,13 +44,27 @@ def get_project_health(db: Session, project_id: UUID) -> float:
     # Placeholder for project health logic
     return 85.0
 
-def get_org_profit(db: Session) -> float:
+def get_org_metrics_details(db: Session) -> Dict[str, float]:
     rev = db.query(func.sum(ProjectRevenue.revenue_amount)).scalar() or 0.0
     pc = db.query(func.sum(ProjectCost.amount)).scalar() or 0.0
     st = db.query(func.sum(SoftwareTool.annual_cost)).scalar() or 0.0
     rem = db.query(func.sum(Reimbursement.claim_amount)).scalar() or 0.0
+    # Add dummy salary for now or query employees
+    salary = 500000.0 # dummy
 
-    return float(rev) - float(pc + st + rem)
+    total_inv = float(pc) + float(st) + float(rem) + salary
+    margin = float(rev) - total_inv
+
+    return {
+        "Total_Revenue": float(rev),
+        "Total_Investment": total_inv,
+        "Total_Project_Costs": float(pc),
+        "Total_Tools_Cost": float(st),
+        "Total_Reimbursements": float(rem),
+        "Total_Salary": salary,
+        "Margin": margin,
+        "organization_margin": (margin / total_inv * 100) if total_inv else 0.0
+    }
 
 def get_cost_leakage(db: Session) -> float:
     return 15.0 # Placeholder leakage percentage
@@ -59,12 +73,18 @@ def get_entity_metrics(db: Session, entity_type: str, entity_id: UUID = None, is
     metrics = {}
     if entity_type == 'department' and entity_id:
         metrics['department_roi'] = get_department_roi(db, entity_id)
+        # Also map it to department_profit for UI backwards compatibility if needed
+        metrics['department_profit'] = metrics['department_roi']
     elif entity_type == 'employee' and entity_id:
         metrics['employee_roi'] = get_employee_roi(db, entity_id)
+        metrics['employee_utilization'] = 80.0
     elif entity_type == 'project' and entity_id:
         metrics['project_health'] = get_project_health(db, entity_id)
+        metrics['project_roi'] = 20.0
+        metrics['project_margin'] = 15.0
     elif entity_type == 'organization' or is_organization:
-        metrics['org_profit'] = get_org_profit(db)
+        org_metrics = get_org_metrics_details(db)
+        metrics.update(org_metrics)
         metrics['cost_leakage'] = get_cost_leakage(db)
     
     return metrics

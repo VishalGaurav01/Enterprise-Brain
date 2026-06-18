@@ -3,8 +3,9 @@ import Layout from './components/Layout'
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import RuleEngine from './pages/RuleEngine';
-
+import { GraphPage } from './pages/GraphPage';
 import Entities from './pages/Entities';
+import { CopilotPage } from './pages/CopilotPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('token');
@@ -23,6 +24,8 @@ function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="explorer" element={<Entities />} />
           <Route path="rules" element={<RuleEngine />} />
+          <Route path="graph" element={<GraphPage />} />
+          <Route path="copilot" element={<CopilotPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { TrendingUp, Users, FolderKanban, DollarSign, Activity } from 'lucide-react';
-import api from '../lib/api';
+import { EmployeeService, ProjectService, AnalyticsService } from '../services';
+import type { Department } from '../types';
 
 export default function Dashboard() {
   const [orgMetrics, setOrgMetrics] = useState<any>(null);
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<{name: string, profit: number}[]>([]);
   const [kpis, setKpis] = useState({ projectsCount: 0, teamCount: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -14,35 +15,36 @@ export default function Dashboard() {
     const fetchMetrics = async () => {
       try {
         // 1. Fetch Org Level Metrics
-        const orgRes = await api.post('/analytics/evaluate', {
+        const orgRes = await AnalyticsService.evaluate({
           rule_name: 'org_margin_v1',
+          entity_type: 'organization',
           is_organization: true
         });
-        setOrgMetrics(orgRes.data.details);
+        setOrgMetrics(orgRes.details);
 
         // 2. Fetch Base Entity Counts
-        const [projRes, empRes, deptRes] = await Promise.all([
-          api.get('/projects/'),
-          api.get('/employees/'),
-          api.get('/departments/')
+        const [projects, employees, departments] = await Promise.all([
+          ProjectService.getProjects(),
+          EmployeeService.getEmployees(),
+          EmployeeService.getDepartments()
         ]);
         
         setKpis({
-          projectsCount: projRes.data?.data?.length || 0,
-          teamCount: empRes.data?.data?.length || 0
+          projectsCount: projects.length,
+          teamCount: employees.length
         });
 
         // 3. Evaluate Department Profitability for Chart
-        const depts = deptRes.data?.data || [];
-        const deptPromises = depts.map(async (d: any) => {
+        const deptPromises = departments.map(async (d: Department) => {
           try {
-            const evalRes = await api.post('/analytics/evaluate', {
+            const evalRes = await AnalyticsService.evaluate({
               rule_name: 'department_profit_v1',
+              entity_type: 'department',
               department_id: d.id
             });
             return {
               name: d.name,
-              profit: evalRes.data.result || 0
+              profit: evalRes.result || 0
             };
           } catch (e) {
             return { name: d.name, profit: 0 };
@@ -74,7 +76,7 @@ export default function Dashboard() {
       
       {/* Top Stats Row */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-card/50 backdrop-blur-sm border-white/5 hover:border-white/10 transition-colors">
+        <Card className="bg-card border-border hover:border-border/80 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
             <div className="w-8 h-8 bg-green-500/10 text-green-500 rounded-md flex items-center justify-center"><DollarSign className="w-4 h-4" /></div>
@@ -87,7 +89,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 backdrop-blur-sm border-white/5 hover:border-white/10 transition-colors">
+        <Card className="bg-card border-border hover:border-border/80 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Investment</CardTitle>
             <div className="w-8 h-8 bg-orange-500/10 text-orange-500 rounded-md flex items-center justify-center"><Activity className="w-4 h-4" /></div>
@@ -100,7 +102,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 backdrop-blur-sm border-white/5 hover:border-white/10 transition-colors">
+        <Card className="bg-card border-border hover:border-border/80 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Org Margin</CardTitle>
             <div className="w-8 h-8 bg-blue-500/10 text-blue-500 rounded-md flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
@@ -115,7 +117,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 backdrop-blur-sm border-white/5 hover:border-white/10 transition-colors">
+        <Card className="bg-card border-border hover:border-border/80 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Active Projects</CardTitle>
             <div className="w-8 h-8 bg-purple-500/10 text-purple-500 rounded-md flex items-center justify-center"><FolderKanban className="w-4 h-4" /></div>
@@ -131,13 +133,13 @@ export default function Dashboard() {
 
       {/* Charts Row */}
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="bg-card/50 backdrop-blur-sm border-white/5">
+        <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle>Department Profitability</CardTitle>
             <CardDescription>Net profit/loss by business unit</CardDescription>
           </CardHeader>
-          <CardContent className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+          <CardContent className="h-80 min-h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
               <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
                 <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
@@ -157,7 +159,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/50 backdrop-blur-sm border-white/5">
+        <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle>Investment Breakdown</CardTitle>
             <CardDescription>Where capital is allocated globally</CardDescription>

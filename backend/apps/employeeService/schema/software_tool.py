@@ -5,7 +5,7 @@ from typing import Optional
 
 
 class SoftwareToolBase(BaseModel):
-    name: str = Field(..., max_length=150)
+    name: Optional[str] = Field(None, max_length=150)
     department_id: UUID
     annual_cost: Decimal = Field(..., gt=0)
 

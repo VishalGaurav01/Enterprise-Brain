@@ -43,3 +43,45 @@ def evaluate(
         return EvaluationResponse(result=result, details=details, triggered_rules=triggered)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+import os
+from neo4j import GraphDatabase
+
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
+
+@router.get("/graph-data")
+def get_graph_data(current_user: UserGet = Depends(verify_token)):
+    try:
+        driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+        with driver.session() as session:
+            # Simple query to get nodes and relationships
+            result = session.run("MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 500")
+            nodes = {}
+            links = []
+            
+            for record in result:
+                n = record["n"]
+                m = record["m"]
+                r = record["r"]
+                
+                n_id = n.element_id
+                m_id = m.element_id
+                
+                if n_id not in nodes:
+                    nodes[n_id] = {"id": n_id, "label": list(n.labels)[0], "properties": dict(n)}
+                if m_id not in nodes:
+                    nodes[m_id] = {"id": m_id, "label": list(m.labels)[0], "properties": dict(m)}
+                    
+                links.append({
+                    "source": n_id,
+                    "target": m_id,
+                    "type": r.type,
+                    "properties": dict(r)
+                })
+                
+        driver.close()
+        return {"nodes": list(nodes.values()), "links": links}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

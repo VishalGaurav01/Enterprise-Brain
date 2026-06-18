@@ -3,7 +3,7 @@ from uuid import UUID
 from typing import Optional
 
 class ClientBase(BaseModel):
-    company_name: str = Field(..., max_length=150)
+    company_name: Optional[str] = Field(None, max_length=150)
     industry: Optional[str] = Field(None, max_length=100)
 
 class ClientCreate(ClientBase):

@@ -3,7 +3,7 @@ from uuid import UUID
 from typing import Optional
 
 class VendorBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
+    name: Optional[str] = Field(None, max_length=100)
     service_type: Optional[str] = Field(None, max_length=50)
 
     model_config = ConfigDict(from_attributes=True)

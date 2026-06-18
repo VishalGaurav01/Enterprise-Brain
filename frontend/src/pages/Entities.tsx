@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import api from '../lib/api';
+import { EmployeeService, ProjectService } from '../services';
+import type { Employee, Project, Department, Assignment } from '../types';
 import { Card, CardContent } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Button } from '../components/ui/button';
@@ -9,9 +10,9 @@ import { Users, FolderKanban, Building2 } from 'lucide-react';
 export default function Entities() {
   const [activeTab, setActiveTab] = useState<'employees' | 'projects' | 'departments'>('employees');
   
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal State
@@ -21,14 +22,14 @@ export default function Entities() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [empRes, projRes, deptRes] = await Promise.all([
-        api.get('/employees/'),
-        api.get('/projects/'),
-        api.get('/departments/')
+      const [empList, projList, deptList] = await Promise.all([
+        EmployeeService.getEmployees(),
+        ProjectService.getProjects(),
+        EmployeeService.getDepartments()
       ]);
-      setEmployees(empRes.data?.data || []);
-      setProjects(projRes.data?.data || []);
-      setDepartments(deptRes.data?.data || []);
+      setEmployees(empList);
+      setProjects(projList);
+      setDepartments(deptList);
     } catch (err) {
       console.error("Error fetching entities", err);
     } finally {
@@ -40,7 +41,7 @@ export default function Entities() {
     fetchData();
   }, []);
 
-  const [assignments, setAssignments] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loadingRelations, setLoadingRelations] = useState(false);
 
   const openDetails = async (type: 'employee' | 'project' | 'department', entity: any) => {
@@ -51,22 +52,18 @@ export default function Entities() {
     if (type === 'employee') {
       setLoadingRelations(true);
       try {
-        const res = await api.get(`/assignments/employee/${entity.id}`);
-        setAssignments(res.data?.data || []);
+        const assigned = await ProjectService.getAssignmentsByEmployee(entity.id);
+        setAssignments(assigned);
       } catch (err) {
         console.error(err);
       } finally {
         setLoadingRelations(false);
       }
     } else if (type === 'project') {
-      // Assuming GET /assignments returns all assignments and we can filter, 
-      // or we can fetch all assignments globally to avoid multiple requests.
-      // Let's just fetch all assignments if project is selected.
       setLoadingRelations(true);
       try {
-        const res = await api.get(`/assignments/`);
-        const allAssigned = res.data?.data || [];
-        setAssignments(allAssigned.filter((a: any) => a.project_id === entity.id));
+        const allAssigned = await ProjectService.getAssignments();
+        setAssignments(allAssigned.filter((a: Assignment) => a.project_id === entity.id));
       } catch (err) {
         console.error(err);
       } finally {
@@ -75,7 +72,8 @@ export default function Entities() {
     }
   };
 
-  const getDepartmentName = (deptId: string) => {
+  const getDepartmentName = (deptId?: string) => {
+    if (!deptId) return 'Unknown';
     const dept = departments.find(d => d.id === deptId);
     return dept ? dept.name : 'Unknown';
   };
@@ -122,7 +120,7 @@ export default function Entities() {
         </Button>
       </div>
 
-      <Card className="bg-card/50 backdrop-blur-sm border-white/5">
+      <Card className="bg-card border-border">
         <CardContent className="p-0">
           {loading ? (
             <div className="p-8 text-center text-muted-foreground">Loading entities...</div>
@@ -144,7 +142,7 @@ export default function Entities() {
                       <TableRow key={e.id}>
                         <TableCell className="font-medium">{e.first_name} {e.last_name}</TableCell>
                         <TableCell>{e.email}</TableCell>
-                        <TableCell>{e.role}</TableCell>
+                        <TableCell>{e.designation_id || 'Employee'}</TableCell>
                         <TableCell>{getDepartmentName(e.department_id)}</TableCell>
                         <TableCell>
                           <Button variant="outline" size="sm" onClick={() => openDetails('employee', e)}>
@@ -176,7 +174,7 @@ export default function Entities() {
                              {p.status || 'Active'}
                            </span>
                         </TableCell>
-                        <TableCell>${p.budget?.toLocaleString()}</TableCell>
+                        <TableCell>${p.budget_allocated?.toLocaleString() || 0}</TableCell>
                         <TableCell>
                           <Button variant="outline" size="sm" onClick={() => openDetails('project', p)}>
                             View Relations
@@ -294,7 +292,7 @@ export default function Entities() {
                   <div className="space-y-2 max-h-40 overflow-y-auto">
                     {employees.filter(e => e.department_id === selectedEntity.id).map(emp => (
                       <div key={emp.id} className="text-sm font-medium">
-                         - {emp.first_name} {emp.last_name} ({emp.role})
+                         - {emp.first_name} {emp.last_name}
                       </div>
                     ))}
                     {employees.filter(e => e.department_id === selectedEntity.id).length === 0 && (

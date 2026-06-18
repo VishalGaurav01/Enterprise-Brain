@@ -56,7 +56,7 @@ class SoftwareToolGetMinimal(SoftwareToolBase):
 
 class EmployeeGet(EmployeeBase):
     id: UUID
-    created_at: datetime
+    created_at: Optional[datetime] = None
     created_by: Optional[UUID] = None
     department: Optional[DepartmentGetMinimal] = None
     designation: Optional[DesignationGetMinimal] = None
@@ -73,14 +73,14 @@ class EmployeeList(BaseModel):
 
 class DepartmentGet(DepartmentBase):
     id: UUID
-    created_at: datetime
+    created_at: Optional[datetime] = None
     employees: Optional[List[EmployeeGetMinimal]] = None
     projects: Optional[List["ProjectGetMinimal"]] = None
     model_config = ConfigDict(from_attributes=True)
 
 class ProjectGet(ProjectBase):
     id: UUID
-    created_at: datetime
+    created_at: Optional[datetime] = None
     department: Optional[DepartmentGetMinimal] = None
     owner: Optional[EmployeeGetMinimal] = None
     assignments: Optional[List["AssignmentGet"]] = None
@@ -132,14 +132,14 @@ class ProjectRevenueGet(ProjectRevenueBase):
 
 class ReimbursementGet(ReimbursementBase):
     id: UUID
-    created_at: datetime
+    created_at: Optional[datetime] = None
     created_by: Optional[UUID] = None
     employee: Optional[EmployeeGetMinimal] = None
     model_config = ConfigDict(from_attributes=True)
 
 class SoftwareToolGet(SoftwareToolBase):
     id: UUID
-    created_at: datetime
+    created_at: Optional[datetime] = None
     created_by: Optional[UUID] = None
     department: Optional[DepartmentGetMinimal] = None
     model_config = ConfigDict(from_attributes=True)

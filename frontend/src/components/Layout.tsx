@@ -1,10 +1,12 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Settings, LogOut, Database } from 'lucide-react';
+import { LayoutDashboard, Settings, LogOut, Database, Network, Bot } from 'lucide-react';
 
 const SIDEBAR_ITEMS = [
   { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { name: 'Entity Explorer', icon: Database, path: '/explorer' },
   { name: 'Rule Engine', icon: Settings, path: '/rules' },
+  { name: 'Knowledge Graph', icon: Network, path: '/graph' },
+  { name: 'AI Copilot', icon: Bot, path: '/copilot' },
 ];
 
 export default function Layout() {
@@ -61,7 +63,7 @@ export default function Layout() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-16 border-b bg-card/50 backdrop-blur-sm flex items-center justify-between px-8">
+        <header className="h-16 border-b bg-card flex items-center justify-between px-8">
           <h1 className="text-xl font-semibold">
             {SIDEBAR_ITEMS.find(i => location.pathname.startsWith(i.path))?.name || 'Dashboard'}
           </h1>

@@ -9,7 +9,7 @@ class AssignmentBase(BaseModel):
     employee_id: UUID
     project_id: UUID
     role: Optional[str] = Field(None, max_length=100)
-    allocation_percent: Optional[Decimal] = Field(None, ge=0, le=100)
+    allocation_percent: Optional[Decimal] = Field(None, ge=0)
     billing_rate: Optional[Decimal] = Field(None, ge=0)
     start_date: Optional[date] = None
     end_date: Optional[date] = None

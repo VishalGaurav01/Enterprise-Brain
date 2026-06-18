@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../lib/api';
+import { AuthService } from '../services';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -19,8 +19,8 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const response = await api.post('/auth/login', { username, password });
-      localStorage.setItem('token', response.data.data.token);
+      const response = await AuthService.login({ username, password });
+      localStorage.setItem('token', response.session_token);
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || err.response?.data?.detail || 'Invalid credentials');

@@ -6,12 +6,12 @@ from decimal import Decimal
 
 
 class ProjectBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
+    name: Optional[str] = Field(None, max_length=100)
     project_type: Optional[str] = Field(None, max_length=50)
     department_id: Optional[UUID] = None
     owner_employee_id: Optional[UUID] = None
     budget_allocated: Optional[Decimal] = Field(None, ge=0)
-    status: str = Field("active", max_length=20)
+    status: Optional[str] = Field("active", max_length=20)
     start_date: Optional[date] = None
     end_date: Optional[date] = None
 
