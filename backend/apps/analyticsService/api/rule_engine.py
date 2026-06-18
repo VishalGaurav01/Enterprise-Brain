@@ -56,12 +56,17 @@ def get_graph_data(current_user: UserGet = Depends(verify_token)):
     try:
         driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
         with driver.session() as session:
-            # Simple query to get nodes and relationships
-            result = session.run("MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 500")
+            # Query nodes
+            nodes_result = session.run("MATCH (n) RETURN n LIMIT 2000")
             nodes = {}
+            for record in nodes_result:
+                n = record["n"]
+                nodes[n.element_id] = {"id": n.element_id, "label": list(n.labels)[0], "properties": dict(n)}
+                
+            # Query relationships
+            links_result = session.run("MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 5000")
             links = []
-            
-            for record in result:
+            for record in links_result:
                 n = record["n"]
                 m = record["m"]
                 r = record["r"]

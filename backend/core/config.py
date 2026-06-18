@@ -15,3 +15,9 @@ SessionLocal = sessionmaker(
     bind=engine
 )
 Base = declarative_base()
+
+try:
+    from core.db_events import setup_db_events
+    setup_db_events()
+except ImportError:
+    pass

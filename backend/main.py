@@ -3,6 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from core.database import get_db
 from apps.gateway.router import gateway_router
+from core.db_events import setup_db_events
+
+# Initialize SQLAlchemy event listeners for Kafka sync
+setup_db_events()
 
 app = FastAPI(title="Brain API")
 
