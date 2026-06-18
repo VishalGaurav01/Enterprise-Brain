@@ -176,31 +176,50 @@ class CopilotAgent:
             yield {"type": "error", "content": "LLM is not configured properly."}
             return
 
+        import time
+        start_time = time.time()
+
         try:
             # 1. Summarization
             if history:
                 yield {"type": "status", "content": "Understanding context from history..."}
+            
+            step1_start = time.time()
             refined_query = self.summarizer.run(query, history)
+            step1_duration = int((time.time() - step1_start) * 1000)
+            
             if history:
-                yield {"type": "step", "title": "Summarizer Agent (Refined Query)", "content": refined_query}
+                yield {"type": "step", "title": "Summarizer Agent (Refined Query)", "content": refined_query, "duration_ms": step1_duration}
             
             # 2. Retrieval
             yield {"type": "status", "content": f"Searching schema and relationships for: {refined_query}..."}
+            
+            step2_start = time.time()
             context = self.retrieval.run(refined_query)
-            yield {"type": "step", "title": "Retrieval Agent (Database Context)", "content": context}
+            step2_duration = int((time.time() - step2_start) * 1000)
+            yield {"type": "step", "title": "Retrieval Agent (Database Context)", "content": context, "duration_ms": step2_duration}
             
             # 3. SQL Generation
             yield {"type": "status", "content": "Generating and executing SQL..."}
+            
+            step3_start = time.time()
             sql_query, sql_result = self.sql_gen.run(refined_query, context)
+            step3_duration = int((time.time() - step3_start) * 1000)
+            
             yield {"type": "sql", "content": sql_query}
-            yield {"type": "step", "title": "Database Execution Result", "content": sql_result}
+            yield {"type": "step", "title": "Database Execution Result", "content": sql_result, "duration_ms": step3_duration}
             
             # 4. Response Summary
             yield {"type": "status", "content": "Analyzing results..."}
+            
+            step4_start = time.time()
             for chunk in self.responder.run_stream(refined_query, sql_query, sql_result):
                 yield {"type": "content", "content": chunk}
+            step4_duration = int((time.time() - step4_start) * 1000)
+            yield {"type": "step", "title": "Response Summary Agent", "content": "Response streamed successfully.", "duration_ms": step4_duration}
                 
-            yield {"type": "done"}
+            total_duration = int((time.time() - start_time) * 1000)
+            yield {"type": "done", "total_duration_ms": total_duration}
             
         except Exception as e:
             import traceback

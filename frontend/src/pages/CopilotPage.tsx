@@ -7,7 +7,8 @@ interface Message {
     content: string;
     sql?: string;
     context?: string[];
-    steps?: {title: string, content: string}[];
+    steps?: {title: string, content: string, duration_ms?: number}[];
+    total_duration_ms?: number;
 }
 
 export const CopilotPage: React.FC = () => {
@@ -73,7 +74,7 @@ export const CopilotPage: React.FC = () => {
                         // We could display status updates in the UI
                         return msg;
                     } else if (data.type === 'step') {
-                        const newSteps = [...(msg.steps || []), { title: data.title, content: data.content }];
+                        const newSteps = [...(msg.steps || []), { title: data.title, content: data.content, duration_ms: data.duration_ms }];
                         return { ...msg, steps: newSteps };
                     } else if (data.type === 'sql') {
                         return { ...msg, sql: data.content };
@@ -86,6 +87,9 @@ export const CopilotPage: React.FC = () => {
                 }));
 
                 if (data.type === 'done' || data.type === 'error') {
+                    if (data.type === 'done' && data.total_duration_ms) {
+                        setMessages(prev => prev.map(msg => msg.id === assistantId ? { ...msg, total_duration_ms: data.total_duration_ms } : msg));
+                    }
                     ws.close();
                     setIsLoading(false);
                 }
@@ -154,7 +158,7 @@ export const CopilotPage: React.FC = () => {
                                         {msg.steps.map((step, idx) => (
                                             <details key={idx} className="bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded group">
                                                 <summary className="text-xs font-medium text-gray-700 dark:text-gray-300 p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors select-none flex items-center justify-between">
-                                                    <span>{step.title}</span>
+                                                    <span>{step.title} {step.duration_ms !== undefined ? <span className="text-gray-400 ml-2 font-normal">({(step.duration_ms / 1000).toFixed(2)}s)</span> : ''}</span>
                                                     <svg className="w-4 h-4 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                                                 </summary>
                                                 <div className="p-2 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-600 dark:text-gray-400 overflow-x-auto whitespace-pre-wrap">
@@ -170,6 +174,13 @@ export const CopilotPage: React.FC = () => {
                                         <pre className="bg-gray-50 dark:bg-gray-900 p-2 rounded text-xs text-gray-700 dark:text-gray-300 overflow-x-auto border border-gray-100 dark:border-gray-800">
                                             <code>{msg.sql}</code>
                                         </pre>
+                                    </div>
+                                )}
+                                {msg.total_duration_ms !== undefined && (
+                                    <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-end">
+                                        <span className="text-[10px] text-gray-400 font-mono">
+                                            Total processing time: {(msg.total_duration_ms / 1000).toFixed(2)}s
+                                        </span>
                                     </div>
                                 )}
                             </div>

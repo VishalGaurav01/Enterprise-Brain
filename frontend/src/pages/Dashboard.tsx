@@ -146,7 +146,9 @@ export default function Dashboard() {
                 <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value / 1000}k`} />
                 <Tooltip 
                   cursor={{fill: '#ffffff05'}}
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid #ffffff10', borderRadius: '8px' }}
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid #ffffff10', borderRadius: '8px', color: '#f3f4f6' }}
+                  itemStyle={{ color: '#e5e7eb' }}
+                  labelStyle={{ color: '#f3f4f6' }}
                   formatter={(value: any) => formatCurrency(Number(value))}
                 />
                 <Bar dataKey="profit" radius={[4, 4, 4, 4]}>
