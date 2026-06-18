@@ -7,7 +7,7 @@ from langchain_core.prompts import PromptTemplate
 from huggingface_hub import InferenceClient
 from neo4j import GraphDatabase
 from apps.copilotService.service.schema_indexer import SchemaIndexer
-
+import concurrent.futures
 class SummarizerAgent:
     def __init__(self, llm, model_id):
         self.llm = llm
@@ -47,18 +47,16 @@ class RetrievalAgent:
             return "No graph relationships available."
         try:
             with self.neo4j_driver.session() as session:
-                # Query db.schema.visualization directly for a simple topology
-                result = session.run("CALL db.schema.visualization()")
-                data = result.data()
-                if not data:
+                record = session.run("CALL db.schema.visualization()").single()
+                if not record or not record.get("relationships"):
                     return "No graph relationships available."
                 
-                rels = data[0]['relationships']
+                rels = record["relationships"]
                 
                 context = "Graph Relationships (Nodes and Edges):\n"
                 for rel in rels:
-                    start = dict(rel.start_node).get('name', 'Unknown')
-                    end = dict(rel.end_node).get('name', 'Unknown')
+                    start = list(rel.nodes[0].labels)[0] if rel.nodes[0].labels else 'Unknown'
+                    end = list(rel.nodes[1].labels)[0] if rel.nodes[1].labels else 'Unknown'
                     type_ = rel.type
                     context += f"- (Table: {start}) --[{type_}]--> (Table: {end})\n"
                 return context
@@ -66,12 +64,16 @@ class RetrievalAgent:
             return f"Error retrieving graph schema: {str(e)}"
 
     def run(self, refined_query: str) -> str:
-        # 1. Semantic Search
-        relevant_schemas = self.schema_indexer.search_schema(refined_query, k=5)
-        schema_context = "Table Schemas:\n" + "\n\n".join(relevant_schemas)
         
-        # 2. Graph DB Search
-        graph_context = self._get_neo4j_schema()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            # Run Semantic Search and Graph DB Search in parallel
+            future_schema = executor.submit(self.schema_indexer.search_schema, refined_query, 5)
+            future_graph = executor.submit(self._get_neo4j_schema)
+            
+            relevant_schemas = future_schema.result()
+            graph_context = future_graph.result()
+            
+        schema_context = "Table Schemas:\n" + "\n\n".join(relevant_schemas)
         
         return f"{schema_context}\n\n{graph_context}"
 
