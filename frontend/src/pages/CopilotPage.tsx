@@ -135,9 +135,9 @@ export const CopilotPage: React.FC = () => {
                             <p className="text-gray-500 dark:text-gray-400 max-w-sm mt-1">I can convert your questions into SQL, query the database, and summarize the results.</p>
                         </div>
                         <div className="flex flex-wrap justify-center gap-2 mt-4 max-w-md">
-                            <button onClick={() => setInput("Which department has the most employees?")} className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">"Which department has the most employees?"</button>
-                            <button onClick={() => setInput("Show me all projects for Client X")} className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">"Show me all projects for Client X"</button>
-                            <button onClick={() => setInput("What is the total revenue generated so far?")} className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">"What is the total revenue generated so far?"</button>
+                            <button onClick={() => setInput("Show all departments")} className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">"Show all departments"</button>
+                            <button onClick={() => setInput("List all projects")} className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">"List all vendors"</button>
+                            <button onClick={() => setInput("How many employees do we have?")} className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">"How many employees do we have?"</button>
                         </div>
                     </div>
                 ) : (
