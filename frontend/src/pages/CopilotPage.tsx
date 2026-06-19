@@ -15,6 +15,7 @@ export const CopilotPage: React.FC = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [mode, setMode] = useState<'READ' | 'ACTION'>('READ');
     const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -61,7 +62,7 @@ export const CopilotPage: React.FC = () => {
                     role: m.role,
                     content: m.content
                 }));
-                ws.send(JSON.stringify({ query: userMessage.content, token, history }));
+                ws.send(JSON.stringify({ query: userMessage.content, token, history, mode }));
             };
 
             ws.onmessage = (event) => {
@@ -119,12 +120,29 @@ export const CopilotPage: React.FC = () => {
     return (
         <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden shadow-sm">
             {/* Header */}
-            <div className="bg-white dark:bg-gray-950 p-4 border-b border-gray-200 dark:border-gray-800">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                    AI Data Copilot
-                </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Ask natural language questions about your organization, projects, and finances.</p>
+            <div className="bg-white dark:bg-gray-950 p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
+                <div>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        AI Data Copilot
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Ask natural language questions about your organization, projects, and finances.</p>
+                </div>
+                {/* Mode Toggle */}
+                <div className="flex items-center gap-2 bg-gray-200 dark:bg-gray-800 p-1 rounded-lg">
+                    <button 
+                        onClick={() => setMode('READ')}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${mode === 'READ' ? 'bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                    >
+                        Read Data
+                    </button>
+                    <button 
+                        onClick={() => setMode('ACTION')}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${mode === 'ACTION' ? 'bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                    >
+                        Take Action
+                    </button>
+                </div>
             </div>
 
             {/* Chat Area */}

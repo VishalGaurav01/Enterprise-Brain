@@ -45,11 +45,12 @@ async def copilot_websocket(websocket: WebSocket):
 
             query = payload.get("query")
             history = payload.get("history", [])
+            mode = payload.get("mode", "READ")
             if not query:
                 continue
 
             # We will use an async generator from the agent
-            async for chunk in get_agent().run_stream(query, history):
+            async for chunk in get_agent().run_stream(query, history, mode, token):
                 await websocket.send_text(json.dumps(chunk))
                 
     except WebSocketDisconnect:
