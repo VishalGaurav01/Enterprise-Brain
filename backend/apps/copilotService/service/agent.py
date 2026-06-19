@@ -179,148 +179,356 @@ class ResponseSummaryAgent:
                 yield chunk.choices[0].delta.content
 
 
+# ---------------------------------------------------------------------------
+# Curated Tool Registry: The LLM only knows about these intents.
+# No OpenAPI parsing. No raw SQL for mutations.
+# ---------------------------------------------------------------------------
+TOOL_REGISTRY = {
+    # ── Employees ──────────────────────────────────────────────────────────
+    "update_employee": {
+        "description": "Update one or more fields (first_name, last_name, email, status) of an existing employee identified by their name.",
+        "needs_lookup": True,
+        "lookup_resource": "employees",
+        "lookup_name_fields": ["first_name", "last_name"],
+        "method": "PATCH",
+        "endpoint_template": "/api/v1/employees/{id}",
+        "example_payload": {"first_name": "John", "last_name": "Doe", "email": "john@example.com"},
+    },
+    "delete_employee": {
+        "description": "Permanently delete an employee by their name.",
+        "needs_lookup": True,
+        "lookup_resource": "employees",
+        "lookup_name_fields": ["first_name", "last_name"],
+        "method": "DELETE",
+        "endpoint_template": "/api/v1/employees/{id}",
+        "example_payload": {},
+    },
+    "create_employee": {
+        "description": "Create a new employee. Requires first_name, last_name, email, department name (will be looked up), designation name (will be looked up), and optionally status.",
+        "needs_lookup": False,
+        "method": "POST",
+        "endpoint_template": "/api/v1/employees/",
+        "example_payload": {"first_name": "Alice", "last_name": "Smith", "email": "alice@example.com", "department_name": "Engineering", "designation_name": "Software Engineer", "status": "active"},
+    },
+    # ── Projects ───────────────────────────────────────────────────────────
+    "update_project": {
+        "description": "Update a project's fields (name, status, budget_allocated) by the project's current name. Valid status values: active, planning, completed, on-hold.",
+        "needs_lookup": True,
+        "lookup_resource": "projects",
+        "lookup_name_fields": ["name"],
+        "method": "PATCH",
+        "endpoint_template": "/api/v1/projects/{id}",
+        "example_payload": {"status": "planning"},
+    },
+    "delete_project": {
+        "description": "Delete a project by its name.",
+        "needs_lookup": True,
+        "lookup_resource": "projects",
+        "lookup_name_fields": ["name"],
+        "method": "DELETE",
+        "endpoint_template": "/api/v1/projects/{id}",
+        "example_payload": {},
+    },
+    "create_project": {
+        "description": "Create a new project. Requires name, project_type (fixed-price / time-and-material / retainer), department name, owner employee name, client name.",
+        "needs_lookup": False,
+        "method": "POST",
+        "endpoint_template": "/api/v1/projects/",
+        "example_payload": {"name": "Project X", "project_type": "fixed-price", "department_name": "Engineering", "owner_employee_name": "Sarah Connor", "client_name": "Acme Corp"},
+    },
+    # ── Departments ────────────────────────────────────────────────────────
+    "update_department": {
+        "description": "Update a department's fields (name, description) by the department's current name.",
+        "needs_lookup": True,
+        "lookup_resource": "departments",
+        "lookup_name_fields": ["name"],
+        "method": "PATCH",
+        "endpoint_template": "/api/v1/departments/{id}",
+        "example_payload": {"name": "New Name"},
+    },
+    "create_department": {
+        "description": "Create a new department. Requires name, description, and cost_center_code.",
+        "needs_lookup": False,
+        "method": "POST",
+        "endpoint_template": "/api/v1/departments/",
+        "example_payload": {"name": "Marketing", "description": "Marketing team", "cost_center_code": "CC-MKT-01"},
+    },
+    # ── Assignments ────────────────────────────────────────────────────────
+    "create_assignment": {
+        "description": "Assign an employee to a project with a role and allocation percentage. Requires employee name, project name, role, and allocation_percent.",
+        "needs_lookup": False,
+        "method": "POST",
+        "endpoint_template": "/api/v1/assignments/",
+        "example_payload": {"employee_name": "Alex Turner", "project_name": "Project Alpha", "role": "Developer", "allocation_percent": 50},
+    },
+    "delete_assignment": {
+        "description": "Remove an employee's assignment from a project. Identify by employee name and project name.",
+        "needs_lookup": True,
+        "lookup_resource": "assignments",
+        "lookup_name_fields": ["employee_id", "project_id"],
+        "method": "DELETE",
+        "endpoint_template": "/api/v1/assignments/{id}",
+        "example_payload": {},
+    },
+}
+
+TOOL_DESCRIPTIONS_FOR_LLM = "\n".join([
+    f'- "{intent}": {cfg["description"]}  |  Example payload: {json.dumps(cfg["example_payload"])}'
+    for intent, cfg in TOOL_REGISTRY.items()
+])
+
+
 class ActionAgent:
     def __init__(self, llm, model_id):
         self.llm = llm
         self.model_id = model_id
 
-    async def run_stream(self, query: str, token: str):
+    async def run_stream(self, query: str, token: str, websocket=None):
         import httpx
-        import json
         import re
         import time
+        from core.database import get_db
+        from apps.projectService.service.project import get_all_projects
+        from apps.employeeService.service.employee import get_all_employees
+        from apps.employeeService.service import department as dept_svc
+        from apps.financeService.service import client as client_svc
+        from apps.projectService.service import assignment as assign_svc
 
-        yield {"type": "status", "content": "Initializing Action Mode..."}
+        BASE_URL = "http://localhost:8000"
+        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
 
-        step1_start = time.time()
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get("http://localhost:8000/openapi.json")
-                if response.status_code != 200:
-                    yield {
-                        "type": "error",
-                        "content": "Could not fetch API definitions.",
-                    }
-                    return
-                openapi_spec = response.json()
-        except Exception as e:
-            yield {"type": "error", "content": f"Error fetching OpenAPI spec: {str(e)}"}
-            return
+        # Helper: fetch all records from DB directly (no HTTP, no auth)
+        def db_get_all(resource: str) -> list:
+            db = next(get_db())
+            try:
+                if resource == "projects":
+                    items = get_all_projects(db, skip=0, limit=2000)
+                    return [i.model_dump() for i in items]
+                elif resource == "employees":
+                    items = get_all_employees(db, skip=0, limit=2000)
+                    return [i.model_dump() for i in items]
+                elif resource == "departments":
+                    items = dept_svc.get_all_departments(db, skip=0, limit=500)
+                    return [i.model_dump() for i in items]
+                elif resource == "clients":
+                    items = client_svc.get_all_clients(db, skip=0, limit=500)
+                    return [i.model_dump() for i in items]
+                elif resource == "assignments":
+                    items = assign_svc.get_all_assignments(db, skip=0, limit=2000)
+                    return [i.model_dump() for i in items]
+                return []
+            except Exception as e:
+                print(f"[ActionAgent] db_get_all({resource}) error: {e}")
+                return []
+            finally:
+                db.close()
 
-        paths = openapi_spec.get("paths", {})
-        available_tools = []
-        for path, methods in paths.items():
-            for method, details in methods.items():
-                if method.lower() in ["post", "put", "delete", "patch"]:
-                    tool = {
-                        "name": f"{method.upper()} {path}",
-                        "description": details.get("summary", ""),
-                        "parameters": details.get("requestBody", {}),
-                    }
-                    available_tools.append(tool)
+        # Helper: find an entity by fuzzy name match, return its UUID string
+        def db_find_by_name(resource: str, name_fields: list, search_name: str) -> str | None:
+            items = db_get_all(resource)
+            search_lower = search_name.lower()
+            for item in items:
+                combined = " ".join(str(item.get(f) or "") for f in name_fields).lower()
+                if search_lower in combined or combined in search_lower:
+                    return str(item.get("id"))
+            return None
 
-        tools_str = json.dumps(available_tools, indent=2)
-        step1_duration = int((time.time() - step1_start) * 1000)
-        yield {
-            "type": "step",
-            "title": "API Discovery",
-            "content": f"Discovered {len(available_tools)} actionable APIs.",
-            "duration_ms": step1_duration,
+        # FK resource map: payload key → (resource, name_fields, output_key)
+        FK_MAP = {
+            "department_name":     ("departments",  ["name"],         "department_id"),
+            "designation_name":    ("designations",  ["name"],         "designation_id"),
+            "owner_employee_name": ("employees",     ["first_name", "last_name"], "owner_employee_id"),
+            "client_name":         ("clients",       ["company_name"], "client_id"),
+            "employee_name":       ("employees",     ["first_name", "last_name"], "employee_id"),
+            "project_name":        ("projects",      ["name"],         "project_id"),
         }
 
-        yield {"type": "status", "content": "Determining action..."}
-        step2_start = time.time()
+        yield {"type": "status", "content": "Analyzing your request..."}
 
-        system_prompt = f"""You are an API Action Agent.
-Your job is to read the user's request and determine which API to call.
-Here are the available APIs:
-{tools_str}
+        # ── PHASE 1: Intent Parsing ────────────────────────────────────────
+        import asyncio
+        loop = asyncio.get_event_loop()
+        step1_start = time.time()
+        system_prompt = f"""You are an API Action Agent for an enterprise system.
+The user wants to perform a data modification operation.
 
-Respond strictly with a JSON object in this format:
-{{
-  "endpoint": "/api/v1/some/path",
-  "method": "POST",
-  "payload": {{"key": "value"}}
-}}
-If no API matches the request, respond with an empty endpoint.
-Do not wrap the JSON in markdown blocks. Return raw JSON.
+Available actions:
+{TOOL_DESCRIPTIONS_FOR_LLM}
+
+Analyze the user's request and respond ONLY with a raw JSON object.
+Do NOT include markdown, code fences, or any text outside the JSON.
+
+Use exactly this structure:
+{{"intent": "update_project", "entity_name": "Project Alpha", "payload": {{"status": "planning"}}, "description": "Update Project Alpha status to planning"}}
+
+Rules:
+- "intent" must be one of the action names listed above.
+- "entity_name" is the human-readable name of the record to act on (null for create operations).
+- "payload" must contain ONLY the fields that need to change or be created.
+- For foreign keys use human-readable names: e.g. "department_name": "Engineering" (not an ID).
+- "description" is a one-sentence plain English summary of what will happen.
+- Output ONLY valid JSON. No extra text before or after.
 """
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": query},
-        ]
+        try:
+            def _intent_call():
+                return self.llm.chat_completion(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": query},
+                    ],
+                    model=self.model_id,
+                    max_tokens=512,
+                    temperature=0.0,
+                )
+            resp = await loop.run_in_executor(None, _intent_call)
+            llm_raw = resp.choices[0].message.content.strip()
+        except Exception as e:
+            yield {"type": "error", "content": f"LLM error: {str(e)}"}
+            return
 
-        response = self.llm.chat_completion(
-            messages=messages, model=self.model_id, max_tokens=1024, temperature=0.1
-        )
-        llm_output = response.choices[0].message.content.strip()
+        # Strip markdown code fences if the model wrapped the JSON
+        clean = llm_raw.strip()
+        for fence in ["```json", "```JSON", "```"]:
+            if clean.startswith(fence):
+                clean = clean[len(fence):].strip()
+        if clean.endswith("```"):
+            clean = clean[:-3].strip()
 
-        match = re.search(r"\{[\s\S]*\}", llm_output)
-        if not match:
+        # Try direct parse first, then fall back to regex extraction
+        parsed = None
+        try:
+            parsed = json.loads(clean)
+        except json.JSONDecodeError:
+            match = re.search(r"\{[\s\S]*\}", clean)
+            if match:
+                try:
+                    parsed = json.loads(match.group(0))
+                except json.JSONDecodeError:
+                    pass
+
+        if parsed is None:
             yield {
                 "type": "error",
-                "content": "I couldn't figure out which API to call.",
+                "content": f"I couldn't parse a valid action plan from the LLM response. Raw output:\n\n{llm_raw[:500]}"
             }
             return
 
-        action_data = json.loads(match.group(0))
-        endpoint = action_data.get("endpoint")
-        method = action_data.get("method", "POST")
-        payload = action_data.get("payload", {})
+        intent = parsed.get("intent")
+        entity_name = parsed.get("entity_name")
+        payload = parsed.get("payload", {})
+        description = parsed.get("description", f"Perform {intent}")
+        step1_duration = int((time.time() - step1_start) * 1000)
 
-        step2_duration = int((time.time() - step2_start) * 1000)
+        if intent not in TOOL_REGISTRY:
+            yield {"type": "content", "content": f"I don't know how to perform '{intent}'. Supported: {', '.join(TOOL_REGISTRY.keys())}"}
+            return
+
+        tool = TOOL_REGISTRY[intent]
+        yield {"type": "step", "title": "Intent Parsed", "content": f"Intent: {intent}\nEntity: {entity_name}\n{description}", "duration_ms": step1_duration}
+
+        # ── PHASE 2: Lookup directly from DB (no HTTP) ────────────────────
+        resolved_id = None
+        if tool["needs_lookup"] and entity_name:
+            yield {"type": "status", "content": f"Looking up '{entity_name}' in database..."}
+            step2_start = time.time()
+            resource = tool["lookup_resource"]
+            name_fields = tool["lookup_name_fields"]
+            items, resolved_id = await loop.run_in_executor(
+                None,
+                lambda: (db_get_all(resource), db_find_by_name(resource, name_fields, entity_name))
+            )
+            step2_duration = int((time.time() - step2_start) * 1000)
+            if not resolved_id:
+                yield {
+                    "type": "error",
+                    "content": f"Could not find '{entity_name}' ({len(items)} {resource} records checked). Please check the exact name."
+                }
+                return
+            yield {"type": "step", "title": "Entity Lookup", "content": f"Found '{entity_name}' → ID: {resolved_id} ({len(items)} records searched)", "duration_ms": step2_duration}
+
+        # Resolve foreign-key names in payload to IDs using direct DB lookup
+        final_payload = {}
+        for key, val in payload.items():
+            if key in FK_MAP:
+                resource, name_fields, fk_key = FK_MAP[key]
+                fk_id = await loop.run_in_executor(
+                    None, lambda r=resource, n=name_fields, v=val: db_find_by_name(r, n, str(v))
+                )
+                if not fk_id:
+                    yield {"type": "error", "content": f"Could not find '{val}' for field '{key}' in {resource}."}
+                    return
+                final_payload[fk_key] = fk_id
+            else:
+                final_payload[key] = val
+
+        endpoint = tool["endpoint_template"]
+        if resolved_id:
+            endpoint = endpoint.replace("{id}", resolved_id)
+        method = tool["method"]
+
+        # ── PHASE 3: Confirmation Gate ────────────────────────────────────
         yield {
-            "type": "step",
-            "title": "Action Agent",
-            "content": f"Calling {method} {endpoint}\nPayload: {json.dumps(payload, indent=2)}",
-            "duration_ms": step2_duration,
+            "type": "confirm",
+            "action_description": description,
+            "method": method,
+            "endpoint": endpoint,
+            "payload": final_payload,
         }
 
-        if not endpoint:
-            yield {
-                "type": "content",
-                "content": "I couldn't find an appropriate action for your request.",
-            }
+        if websocket is not None:
+            try:
+                confirm_data = await websocket.receive_json()
+                approved = confirm_data.get("approved", False)
+            except Exception:
+                approved = False
+        else:
+            approved = False
+
+        if not approved:
+            yield {"type": "content", "content": "Action cancelled. No changes were made."}
             return
 
-        yield {"type": "status", "content": "Executing API request..."}
-        step3_start = time.time()
+        # ── PHASE 4: Execute Mutation + Summarize ─────────────────────────
+        yield {"type": "status", "content": f"Executing {method} {endpoint}..."}
+        step4_start = time.time()
         try:
             async with httpx.AsyncClient() as client:
-                headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {token}",
-                }
-                url = f"http://localhost:8000{endpoint}"
-                api_resp = await client.request(
-                    method, url, json=payload, headers=headers
-                )
+                url = f"{BASE_URL}{endpoint}"
+                if method == "DELETE":
+                    api_resp = await client.delete(url, headers=headers)
+                elif method == "PATCH":
+                    api_resp = await client.patch(url, json=final_payload, headers=headers)
+                elif method == "POST":
+                    api_resp = await client.post(url, json=final_payload, headers=headers)
+                else:
+                    api_resp = await client.request(method, url, json=final_payload, headers=headers)
                 result_text = api_resp.text
                 status_code = api_resp.status_code
         except Exception as e:
-            result_text = str(e)
-            status_code = 500
+            yield {"type": "error", "content": f"API call failed: {str(e)}"}
+            return
 
-        step3_duration = int((time.time() - step3_start) * 1000)
-        yield {
-            "type": "step",
-            "title": "API Execution Result",
-            "content": f"Status: {status_code}\nResponse: {result_text}",
-            "duration_ms": step3_duration,
-        }
+        step4_duration = int((time.time() - step4_start) * 1000)
+        yield {"type": "step", "title": f"{method} {endpoint}", "content": f"HTTP {status_code}\n{result_text}", "duration_ms": step4_duration}
 
-        yield {"type": "status", "content": "Summarizing result..."}
-        step4_start = time.time()
-
-        summary_prompt = f"The user wanted to: {query}\nI executed an API call to {endpoint} which returned status {status_code} and response: {result_text}\nSummarize this to the user in a friendly way."
-
-        response = self.llm.chat_completion(
-            messages=[{"role": "user", "content": summary_prompt}],
-            model=self.model_id,
-            max_tokens=512,
-            temperature=0.3,
+        success = 200 <= status_code < 300
+        summary_prompt = (
+            f'User asked: "{query}"\n'
+            f"Action taken: {description}\n"
+            f"API returned HTTP {status_code}: {result_text}\n\n"
+            f"Write a short, friendly {'success' if success else 'failure'} message. Be specific. No markdown."
         )
-        final_answer = response.choices[0].message.content
+        try:
+            def _summary_call():
+                return self.llm.chat_completion(
+                    messages=[{"role": "user", "content": summary_prompt}],
+                    model=self.model_id, max_tokens=256, temperature=0.3,
+                )
+            sum_resp = await loop.run_in_executor(None, _summary_call)
+            final_answer = sum_resp.choices[0].message.content.strip()
+        except Exception:
+            final_answer = f"{'Done! ' if success else 'Error: '}{description} — HTTP {status_code}"
+
         yield {"type": "content", "content": final_answer}
 
 
@@ -411,7 +619,10 @@ class CopilotAgent:
             return
 
         try:
-            # 1. Summarization
+            import asyncio
+            loop = asyncio.get_event_loop()
+
+            # 1. Summarization (non-blocking)
             if history:
                 yield {
                     "type": "status",
@@ -419,7 +630,9 @@ class CopilotAgent:
                 }
 
             step1_start = time.time()
-            refined_query = self.summarizer.run(query, history)
+            refined_query = await loop.run_in_executor(
+                None, self.summarizer.run, query, history
+            )
             step1_duration = int((time.time() - step1_start) * 1000)
 
             if history:
@@ -430,14 +643,16 @@ class CopilotAgent:
                     "duration_ms": step1_duration,
                 }
 
-            # 2. Retrieval
+            # 2. Retrieval (non-blocking)
             yield {
                 "type": "status",
-                "content": f"Searching schema and relationships for: {refined_query}...",
+                "content": f"Searching schema and relationships...",
             }
 
             step2_start = time.time()
-            context = self.retrieval.run(refined_query)
+            context = await loop.run_in_executor(
+                None, self.retrieval.run, refined_query
+            )
             step2_duration = int((time.time() - step2_start) * 1000)
             yield {
                 "type": "step",
@@ -446,11 +661,13 @@ class CopilotAgent:
                 "duration_ms": step2_duration,
             }
 
-            # 3. SQL Generation
+            # 3. SQL Generation + Execution (non-blocking)
             yield {"type": "status", "content": "Generating and executing SQL..."}
 
             step3_start = time.time()
-            sql_query, sql_result = self.sql_gen.run(refined_query, context)
+            sql_query, sql_result = await loop.run_in_executor(
+                None, self.sql_gen.run, refined_query, context
+            )
             step3_duration = int((time.time() - step3_start) * 1000)
 
             yield {"type": "sql", "content": sql_query}
@@ -461,14 +678,23 @@ class CopilotAgent:
                 "duration_ms": step3_duration,
             }
 
-            # 4. Response Summary
-            yield {"type": "status", "content": "Analyzing results..."}
+            # 4. Response Summary — streamed token by token (non-blocking per chunk)
+            yield {"type": "status", "content": "Analyzing results and composing answer..."}
 
             step4_start = time.time()
-            for chunk in self.responder.run_stream(
-                refined_query, sql_query, sql_result
-            ):
+
+            def _collect_stream():
+                """Run the blocking LLM stream in executor, collect all chunks."""
+                chunks = []
+                for chunk in self.responder.run_stream(refined_query, sql_query, sql_result):
+                    chunks.append(chunk)
+                return chunks
+
+            response_chunks = await loop.run_in_executor(None, _collect_stream)
+
+            for chunk in response_chunks:
                 yield {"type": "content", "content": chunk}
+
             step4_duration = int((time.time() - step4_start) * 1000)
             yield {
                 "type": "step",
